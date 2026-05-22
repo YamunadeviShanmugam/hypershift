@@ -13,6 +13,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
 
@@ -180,6 +181,22 @@ func (opts KonnectivityContainerOptions) buildContainer(hcp *hyperv1.HostedContr
 		kubeconfingVolumeName = "kubeconfig"
 	}
 
+	var servingPort int32
+	switch opts.Mode {
+	case HTTPS:
+		if opts.HTTPSOptions.ServingPort != 0 {
+			servingPort = int32(opts.HTTPSOptions.ServingPort)
+		} else {
+			servingPort = 8090
+		}
+	case Socks5:
+		if opts.Socks5Options.ServingPort != 0 {
+			servingPort = int32(opts.Socks5Options.ServingPort)
+		} else {
+			servingPort = 8090
+		}
+	}
+
 	container := corev1.Container{
 		Name:    fmt.Sprintf("konnectivity-proxy-%s", opts.Mode),
 		Image:   image,
@@ -196,6 +213,17 @@ func (opts KonnectivityContainerOptions) buildContainer(hcp *hyperv1.HostedContr
 			Name:  "KUBECONFIG",
 			Value: "/etc/kubernetes/secrets/kubeconfig/kubeconfig",
 		}},
+		StartupProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				TCPSocket: &corev1.TCPSocketAction{
+					Port: intstr.FromInt32(servingPort),
+				},
+			},
+			InitialDelaySeconds: 5,
+			PeriodSeconds:       2,
+			FailureThreshold:    30,
+			TimeoutSeconds:      1,
+		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      kubeconfingVolumeName,
