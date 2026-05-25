@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/armon/go-socks5"
 	. "github.com/onsi/gomega"
+
+	"github.com/armon/go-socks5"
 )
 
 func TestNewStartCommand(t *testing.T) {
@@ -95,7 +96,7 @@ func TestNewStartCommand(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		// This test verifies that the serve function respects context cancellation
-		// by checking that it returns nil (clean shutdown) when context is cancelled
+		// by checking that it returns nil (clean shutdown) when context is canceled
 
 		// Create the serve function (same pattern as in main.go)
 		serveFunc := func(ctx context.Context, servingPort uint32) error {

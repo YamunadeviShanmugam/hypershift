@@ -218,7 +218,7 @@ func TestDialKonnectivityServerTCP_ConnectionRefused(t *testing.T) {
 		g.Expect(isTransientKonnectivityError(err)).To(BeTrue())
 	})
 
-	t.Run("When context is cancelled during dial, it should abort immediately", func(t *testing.T) {
+	t.Run("When context is canceled during dial, it should abort immediately", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		// Use a non-routable address (RFC 5737 TEST-NET-1) to ensure dial blocks
@@ -386,7 +386,7 @@ func TestRunWithCoreGuard(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("invalid configuration"))
 	})
 
-	t.Run("When context is cancelled during bootstrap, it should return context error", func(t *testing.T) {
+	t.Run("When context is canceled during bootstrap, it should return context error", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		// Save originals
@@ -495,7 +495,7 @@ func TestBootstrapKonnectivity(t *testing.T) {
 		g.Expect(err.Error()).To(ContainSubstring("konnectivity bootstrap failed"))
 	})
 
-	t.Run("When context is cancelled, it should return context error", func(t *testing.T) {
+	t.Run("When context is canceled, it should return context error", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		// Save originals
@@ -521,7 +521,7 @@ func TestBootstrapKonnectivity(t *testing.T) {
 		g.Expect(dialer).To(BeNil())
 	})
 
-	t.Run("When context is cancelled during sleep, it should exit immediately", func(t *testing.T) {
+	t.Run("When context is canceled during sleep, it should exit immediately", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		// Save originals

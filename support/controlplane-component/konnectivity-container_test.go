@@ -3,9 +3,10 @@ package controlplanecomponent
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
-	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -143,7 +144,7 @@ func TestKonnectivityContainerInjectKonnectivityContainer(t *testing.T) {
 		podSpec := &corev1.PodSpec{}
 
 		cpContext := ControlPlaneContext{
-			HCP: hcp,
+			HCP:                  hcp,
 			ReleaseImageProvider: &fakeImageProvider{},
 		}
 
@@ -169,7 +170,7 @@ func TestKonnectivityContainerInjectKonnectivityContainer(t *testing.T) {
 		podSpec := &corev1.PodSpec{}
 
 		cpContext := ControlPlaneContext{
-			HCP: hcp,
+			HCP:                  hcp,
 			ReleaseImageProvider: &fakeImageProvider{},
 		}
 
