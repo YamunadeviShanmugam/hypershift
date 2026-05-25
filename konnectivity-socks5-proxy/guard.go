@@ -31,9 +31,12 @@ var (
 		Duration: 1 * time.Second,
 		Factor:   2.0,
 		Jitter:   0.1,
+		Steps:    5,
 		Cap:      30 * time.Second,
 	}
-	dialKonnectivityServer = dialKonnectivityServerTCP
+	dialKonnectivityServer     = dialKonnectivityServerTCP
+	bootstrapKonnectivityFn    = bootstrapKonnectivity
+	tryBootstrapKonnectivityFn = tryBootstrapKonnectivity
 )
 
 // runWithCoreGuard keeps the process alive while konnectivity infrastructure becomes
@@ -45,7 +48,7 @@ func runWithCoreGuard(ctx context.Context, log logr.Logger, opts konnectivitypro
 			return err
 		}
 
-		dialer, err := bootstrapKonnectivity(ctx, log, opts)
+		dialer, err := bootstrapKonnectivityFn(ctx, log, opts)
 		if err != nil {
 			return err
 		}
@@ -56,8 +59,13 @@ func runWithCoreGuard(ctx context.Context, log logr.Logger, opts konnectivitypro
 				return fmt.Errorf("socks5 server exited: %w", err)
 			}
 			log.Error(err, "socks5 server stopped due to transient error, retrying")
-			time.Sleep(delay())
-			continue
+			sleepDuration := delay()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(sleepDuration):
+				continue
+			}
 		}
 		return nil
 	}
@@ -73,7 +81,7 @@ func bootstrapKonnectivity(ctx context.Context, log logr.Logger, opts konnectivi
 		}
 		attempt++
 
-		d, err := tryBootstrapKonnectivity(opts)
+		d, err := tryBootstrapKonnectivityFn(ctx, opts)
 		if err == nil {
 			return d, nil
 		}
@@ -82,11 +90,17 @@ func bootstrapKonnectivity(ctx context.Context, log logr.Logger, opts konnectivi
 		}
 
 		log.Error(err, "transient konnectivity bootstrap failure, retrying", "attempt", attempt)
-		time.Sleep(delay())
+		sleepDuration := delay()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(sleepDuration):
+			// Continue retry loop
+		}
 	}
 }
 
-func tryBootstrapKonnectivity(opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
+func tryBootstrapKonnectivity(ctx context.Context, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
 	cfg, err := ctrl.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get client config: %w", err)
@@ -113,16 +127,16 @@ func tryBootstrapKonnectivity(opts konnectivityproxy.Options) (konnectivityproxy
 		port = defaultKonnectivityPort
 	}
 
-	if err := dialKonnectivityServer(host, port); err != nil {
+	if err := dialKonnectivityServer(ctx, host, port); err != nil {
 		return nil, err
 	}
 
 	return dialer, nil
 }
 
-func dialKonnectivityServerTCP(host string, port uint32) error {
+func dialKonnectivityServerTCP(ctx context.Context, host string, port uint32) error {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
-	conn, err := net.DialTimeout("tcp", address, konnectivityDialTimeout)
+	conn, err := (&net.Dialer{Timeout: konnectivityDialTimeout}).DialContext(ctx, "tcp", address)
 	if err != nil {
 		return err
 	}

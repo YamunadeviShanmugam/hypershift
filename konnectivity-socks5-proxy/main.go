@@ -2,6 +2,7 @@ package konnectivitysocks5proxy
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	"github.com/openshift/hypershift/support/konnectivityproxy"
@@ -64,7 +65,31 @@ func NewStartCommand() *cobra.Command {
 				return fmt.Errorf("cannot create socks5 server: %w", err)
 			}
 
-			return server.ListenAndServe("tcp", fmt.Sprintf(":%d", servingPort))
+			// Create listener explicitly for graceful shutdown
+			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", servingPort))
+			if err != nil {
+				return fmt.Errorf("cannot create listener: %w", err)
+			}
+
+			// Run server in goroutine
+			serveDone := make(chan error, 1)
+			go func() {
+				serveDone <- server.Serve(listener)
+			}()
+
+			// Wait for either context cancellation or serve error
+			select {
+			case <-ctx.Done():
+				// Graceful shutdown: close listener to stop accepting new connections
+				_ = listener.Close()
+				// Wait for Serve to finish
+				<-serveDone
+				// Treat context cancellation as clean shutdown
+				return nil
+			case err := <-serveDone:
+				// Server stopped, return the error (could be from listener close or actual error)
+				return err
+			}
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
