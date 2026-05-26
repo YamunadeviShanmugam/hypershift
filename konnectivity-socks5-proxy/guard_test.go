@@ -15,6 +15,7 @@ import (
 	"github.com/openshift/hypershift/support/konnectivityproxy"
 
 	"k8s.io/client-go/rest"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"

@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/armon/go-socks5"
 	"github.com/openshift/hypershift/support/konnectivityproxy"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -18,6 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/armon/go-socks5"
 	"github.com/go-logr/logr"
 )
 
