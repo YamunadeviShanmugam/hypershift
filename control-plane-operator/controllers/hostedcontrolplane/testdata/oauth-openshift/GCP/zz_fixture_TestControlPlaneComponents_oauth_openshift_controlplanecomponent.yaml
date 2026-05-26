@@ -8,14 +8,13 @@ spec: {}
 status:
   conditions:
   - lastTransitionTime: null
-    message: oauth-openshift Deployment Available condition not found
+    message: deployments.apps "oauth-openshift" not found
     reason: NotFound
     status: "False"
     type: Available
   - lastTransitionTime: null
-    message: 'Waiting for deployment oauth-openshift rollout to finish: 0 out of 3
-      new replicas have been updated'
-    reason: WaitingForRolloutComplete
+    message: 'Waiting for Dependencies: konnectivity-agent'
+    reason: WaitingForDependencies
     status: "False"
     type: RolloutComplete
   resources:

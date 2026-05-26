@@ -8,14 +8,13 @@ spec: {}
 status:
   conditions:
   - lastTransitionTime: null
-    message: cluster-network-operator Deployment Available condition not found
+    message: deployments.apps "cluster-network-operator" not found
     reason: NotFound
     status: "False"
     type: Available
   - lastTransitionTime: null
-    message: 'Waiting for deployment cluster-network-operator rollout to finish: 0
-      out of 1 new replicas have been updated'
-    reason: WaitingForRolloutComplete
+    message: 'Waiting for Dependencies: konnectivity-agent'
+    reason: WaitingForDependencies
     status: "False"
     type: RolloutComplete
   resources:

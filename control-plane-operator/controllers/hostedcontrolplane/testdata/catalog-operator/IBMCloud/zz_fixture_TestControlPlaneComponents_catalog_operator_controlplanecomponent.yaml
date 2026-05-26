@@ -8,14 +8,13 @@ spec: {}
 status:
   conditions:
   - lastTransitionTime: null
-    message: catalog-operator Deployment Available condition not found
+    message: deployments.apps "catalog-operator" not found
     reason: NotFound
     status: "False"
     type: Available
   - lastTransitionTime: null
-    message: 'Waiting for deployment catalog-operator rollout to finish: 0 out of
-      1 new replicas have been updated'
-    reason: WaitingForRolloutComplete
+    message: 'Waiting for Dependencies: konnectivity-agent'
+    reason: WaitingForDependencies
     status: "False"
     type: RolloutComplete
   resources:

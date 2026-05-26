@@ -8,13 +8,12 @@ spec: {}
 status:
   conditions:
   - lastTransitionTime: null
-    message: packageserver Deployment Available condition not found
+    message: deployments.apps "packageserver" not found
     reason: NotFound
     status: "False"
     type: Available
   - lastTransitionTime: null
-    message: 'Waiting for deployment packageserver rollout to finish: 0 out of 3 new
-      replicas have been updated'
-    reason: WaitingForRolloutComplete
+    message: 'Waiting for Dependencies: konnectivity-agent'
+    reason: WaitingForDependencies
     status: "False"
     type: RolloutComplete
