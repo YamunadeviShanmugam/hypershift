@@ -14,6 +14,9 @@ import (
 
 	"github.com/openshift/hypershift/support/konnectivityproxy"
 
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/go-logr/logr"
 )
 
@@ -65,12 +68,24 @@ func setupBootstrapKonnectivityTest(t *testing.T) {
 	t.Helper()
 	originalBackoff := coreGuardBackoff
 	originalTry := tryBootstrapKonnectivityFn
+	originalGetConfig := getConfigFn
+	originalNewClient := newClientFn
 
 	coreGuardBackoff = waitBackoffForTest()
+
+	// Stub getConfigFn and newClientFn to avoid environment dependency
+	getConfigFn = func() (*rest.Config, error) {
+		return &rest.Config{}, nil
+	}
+	newClientFn = func(config *rest.Config, options client.Options) (client.Client, error) {
+		return nil, nil // Return nil client - not used since tryBootstrapKonnectivityFn is mocked
+	}
 
 	t.Cleanup(func() {
 		coreGuardBackoff = originalBackoff
 		tryBootstrapKonnectivityFn = originalTry
+		getConfigFn = originalGetConfig
+		newClientFn = originalNewClient
 	})
 }
 
@@ -427,10 +442,22 @@ func TestBootstrapKonnectivity(t *testing.T) {
 
 		originalBackoff := coreGuardBackoff
 		originalTry := tryBootstrapKonnectivityFn
+		originalGetConfig := getConfigFn
+		originalNewClient := newClientFn
 		t.Cleanup(func() {
 			coreGuardBackoff = originalBackoff
 			tryBootstrapKonnectivityFn = originalTry
+			getConfigFn = originalGetConfig
+			newClientFn = originalNewClient
 		})
+
+		// Stub client creation to avoid environment dependency
+		getConfigFn = func() (*rest.Config, error) {
+			return &rest.Config{}, nil
+		}
+		newClientFn = func(config *rest.Config, options client.Options) (client.Client, error) {
+			return nil, nil
+		}
 
 		// Use a backoff with long delays to ensure we're testing cancellation during sleep
 		coreGuardBackoff = coreGuardBackoffConfig{

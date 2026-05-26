@@ -1,6 +1,8 @@
 package konnectivitysocks5proxy
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -57,6 +59,11 @@ func NewStartCommand() *cobra.Command {
 			return serveWithGracefulShutdown(ctx, dialer, servingPort, l)
 		})
 		if err != nil {
+			// Treat context cancellation/timeout as clean shutdown (triggered by signals)
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				l.Info("Shutting down gracefully")
+				return
+			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

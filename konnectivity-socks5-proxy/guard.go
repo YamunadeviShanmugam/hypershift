@@ -57,6 +57,8 @@ var (
 	dialKonnectivityServer     = dialKonnectivityServerTCP
 	bootstrapKonnectivityFn    = bootstrapKonnectivity
 	tryBootstrapKonnectivityFn = tryBootstrapKonnectivity
+	getConfigFn                = ctrl.GetConfig
+	newClientFn                = client.New
 )
 
 // runWithCoreGuard keeps the process alive while konnectivity infrastructure becomes
@@ -135,12 +137,12 @@ func serveWithGracefulShutdown(ctx context.Context, dialer konnectivityproxy.Pro
 func bootstrapKonnectivity(ctx context.Context, log logr.Logger, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
 	// Create kube client once - client creation failures are permanent (missing files, bad config)
 	// and should not be retried. Only konnectivity server availability is retried.
-	cfg, err := ctrl.GetConfig()
+	cfg, err := getConfigFn()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get client config: %w", err)
 	}
 
-	kubeClient, err := client.New(cfg, client.Options{})
+	kubeClient, err := newClientFn(cfg, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot get client: %w", err)
 	}
