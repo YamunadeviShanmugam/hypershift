@@ -2,7 +2,6 @@ package konnectivitysocks5proxy
 
 import (
 	"fmt"
-	"net"
 	"os"
 
 	"github.com/openshift/hypershift/support/konnectivityproxy"
@@ -12,7 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	"github.com/armon/go-socks5"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
 )
@@ -56,40 +54,7 @@ func NewStartCommand() *cobra.Command {
 		ctx := signals.SetupSignalHandler()
 
 		err := runWithCoreGuard(ctx, l, opts, servingPort, func(dialer konnectivityproxy.ProxyDialer) error {
-			conf := &socks5.Config{
-				Dial:     dialer.DialContext,
-				Resolver: dialer,
-			}
-			server, err := socks5.New(conf)
-			if err != nil {
-				return fmt.Errorf("cannot create socks5 server: %w", err)
-			}
-
-			// Create listener explicitly for graceful shutdown
-			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", servingPort))
-			if err != nil {
-				return fmt.Errorf("cannot create listener: %w", err)
-			}
-
-			// Run server in goroutine
-			serveDone := make(chan error, 1)
-			go func() {
-				serveDone <- server.Serve(listener)
-			}()
-
-			// Wait for either context cancellation or serve error
-			select {
-			case <-ctx.Done():
-				// Graceful shutdown: close listener to stop accepting new connections
-				_ = listener.Close()
-				// Wait for Serve to finish
-				<-serveDone
-				// Treat context cancellation as clean shutdown
-				return nil
-			case err := <-serveDone:
-				// Server stopped, return the error (could be from listener close or actual error)
-				return err
-			}
+			return serveWithGracefulShutdown(ctx, dialer, servingPort, l)
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)

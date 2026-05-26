@@ -14,8 +14,6 @@ import (
 
 	"github.com/openshift/hypershift/support/konnectivityproxy"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"github.com/go-logr/logr"
 )
 
@@ -38,12 +36,42 @@ func (m *mockProxyDialer) IsCloudAPI(host string) bool {
 	return false
 }
 
-func waitBackoffForTest() wait.Backoff {
-	return wait.Backoff{
-		Duration: 10 * time.Millisecond,
-		Factor:   2.0,
-		Cap:      50 * time.Millisecond,
+func waitBackoffForTest() coreGuardBackoffConfig {
+	return coreGuardBackoffConfig{
+		initialDelay: 10 * time.Millisecond,
+		factor:       2.0,
+		cap:          50 * time.Millisecond,
 	}
+}
+
+// setupRunWithCoreGuardTest saves package-level variables and restores them via t.Cleanup.
+// Use this helper for tests that mock runWithCoreGuard behavior.
+func setupRunWithCoreGuardTest(t *testing.T) {
+	t.Helper()
+	originalBackoff := coreGuardBackoff
+	originalBootstrap := bootstrapKonnectivityFn
+
+	coreGuardBackoff = waitBackoffForTest()
+
+	t.Cleanup(func() {
+		coreGuardBackoff = originalBackoff
+		bootstrapKonnectivityFn = originalBootstrap
+	})
+}
+
+// setupBootstrapKonnectivityTest saves package-level variables and restores them via t.Cleanup.
+// Use this helper for tests that mock bootstrapKonnectivity behavior.
+func setupBootstrapKonnectivityTest(t *testing.T) {
+	t.Helper()
+	originalBackoff := coreGuardBackoff
+	originalTry := tryBootstrapKonnectivityFn
+
+	coreGuardBackoff = waitBackoffForTest()
+
+	t.Cleanup(func() {
+		coreGuardBackoff = originalBackoff
+		tryBootstrapKonnectivityFn = originalTry
+	})
 }
 
 func TestIsTransientKonnectivityError(t *testing.T) {
@@ -154,61 +182,6 @@ func TestDialKonnectivityServerTCP(t *testing.T) {
 	})
 }
 
-func TestDialKonnectivityServerRetries(t *testing.T) {
-	t.Run("When dial fails with a transient error then succeeds, it should eventually succeed", func(t *testing.T) {
-		g := NewGomegaWithT(t)
-
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
-		g.Expect(err).ToNot(HaveOccurred())
-		defer ln.Close()
-
-		_, portStr, err := net.SplitHostPort(ln.Addr().String())
-		g.Expect(err).ToNot(HaveOccurred())
-
-		var port uint32
-		_, err = fmt.Sscanf(portStr, "%d", &port)
-		g.Expect(err).ToNot(HaveOccurred())
-
-		attempts := 0
-		originalDial := dialKonnectivityServer
-		dialKonnectivityServer = func(ctx context.Context, host string, dialPort uint32) error {
-			attempts++
-			if attempts < 2 {
-				return fmt.Errorf("dial tcp: connection refused")
-			}
-			return originalDial(ctx, host, dialPort)
-		}
-		defer func() { dialKonnectivityServer = originalDial }()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		g.Expect(retryDialKonnectivityServer(ctx, logr.Discard(), "127.0.0.1", port)).To(Succeed())
-		g.Expect(attempts).To(BeNumerically(">=", 2))
-	})
-}
-
-func retryDialKonnectivityServer(ctx context.Context, log logr.Logger, host string, port uint32) error {
-	testBackoff := waitBackoffForTest()
-	delay := testBackoff.DelayFunc()
-	attempt := 0
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		attempt++
-		err := dialKonnectivityServer(ctx, host, port)
-		if err == nil {
-			return nil
-		}
-		if !isTransientKonnectivityError(err) {
-			return err
-		}
-		log.Error(err, "transient konnectivity server dial failure, retrying", "attempt", attempt)
-		time.Sleep(delay())
-	}
-}
-
 func TestDialKonnectivityServerTCP_ConnectionRefused(t *testing.T) {
 	t.Run("When port is not listening, it should return connection refused", func(t *testing.T) {
 		g := NewGomegaWithT(t)
@@ -242,11 +215,11 @@ func TestCoreGuardBackoff(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		// Verify the default backoff configuration
-		g.Expect(coreGuardBackoff.Duration).To(Equal(1 * time.Second))
-		g.Expect(coreGuardBackoff.Factor).To(Equal(2.0))
-		g.Expect(coreGuardBackoff.Jitter).To(Equal(0.1))
-		g.Expect(coreGuardBackoff.Steps).To(Equal(5))
-		g.Expect(coreGuardBackoff.Cap).To(Equal(30 * time.Second))
+		g.Expect(coreGuardBackoff.initialDelay).To(Equal(1 * time.Second))
+		g.Expect(coreGuardBackoff.factor).To(Equal(2.0))
+		g.Expect(coreGuardBackoff.jitter).To(Equal(0.1))
+		g.Expect(coreGuardBackoff.steps).To(Equal(5))
+		g.Expect(coreGuardBackoff.cap).To(Equal(30 * time.Second))
 	})
 }
 
@@ -263,15 +236,7 @@ func TestDefaultConstants(t *testing.T) {
 func TestRunWithCoreGuard(t *testing.T) {
 	t.Run("When serve succeeds immediately, it should return nil", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalBootstrap := bootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			bootstrapKonnectivityFn = originalBootstrap
-		}()
+		setupRunWithCoreGuardTest(t)
 
 		mockDialer := &mockProxyDialer{}
 		bootstrapKonnectivityFn = func(ctx context.Context, log logr.Logger, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
@@ -295,15 +260,7 @@ func TestRunWithCoreGuard(t *testing.T) {
 
 	t.Run("When bootstrap fails permanently, it should return error", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalBootstrap := bootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			bootstrapKonnectivityFn = originalBootstrap
-		}()
+		setupRunWithCoreGuardTest(t)
 
 		permanentErr := errors.New("fatal bootstrap error")
 		bootstrapKonnectivityFn = func(ctx context.Context, log logr.Logger, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
@@ -322,15 +279,7 @@ func TestRunWithCoreGuard(t *testing.T) {
 
 	t.Run("When serve fails with transient error then succeeds, it should retry", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalBootstrap := bootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			bootstrapKonnectivityFn = originalBootstrap
-		}()
+		setupRunWithCoreGuardTest(t)
 
 		mockDialer := &mockProxyDialer{}
 		bootstrapKonnectivityFn = func(ctx context.Context, log logr.Logger, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
@@ -357,15 +306,7 @@ func TestRunWithCoreGuard(t *testing.T) {
 
 	t.Run("When serve fails with permanent error, it should fail fast", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalBootstrap := bootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			bootstrapKonnectivityFn = originalBootstrap
-		}()
+		setupRunWithCoreGuardTest(t)
 
 		mockDialer := &mockProxyDialer{}
 		bootstrapKonnectivityFn = func(ctx context.Context, log logr.Logger, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
@@ -388,15 +329,7 @@ func TestRunWithCoreGuard(t *testing.T) {
 
 	t.Run("When context is canceled during bootstrap, it should return context error", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalBootstrap := bootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			bootstrapKonnectivityFn = originalBootstrap
-		}()
+		setupRunWithCoreGuardTest(t)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
@@ -412,15 +345,7 @@ func TestRunWithCoreGuard(t *testing.T) {
 func TestBootstrapKonnectivity(t *testing.T) {
 	t.Run("When tryBootstrap succeeds immediately, it should return dialer", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalTry := tryBootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			tryBootstrapKonnectivityFn = originalTry
-		}()
+		setupBootstrapKonnectivityTest(t)
 
 		mockDialer := &mockProxyDialer{}
 		tryBootstrapKonnectivityFn = func(ctx context.Context, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
@@ -438,15 +363,7 @@ func TestBootstrapKonnectivity(t *testing.T) {
 
 	t.Run("When tryBootstrap fails with transient error then succeeds, it should retry", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalTry := tryBootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			tryBootstrapKonnectivityFn = originalTry
-		}()
+		setupBootstrapKonnectivityTest(t)
 
 		attempts := 0
 		mockDialer := &mockProxyDialer{}
@@ -470,15 +387,7 @@ func TestBootstrapKonnectivity(t *testing.T) {
 
 	t.Run("When tryBootstrap fails with permanent error, it should fail fast", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalTry := tryBootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			tryBootstrapKonnectivityFn = originalTry
-		}()
+		setupBootstrapKonnectivityTest(t)
 
 		permanentErr := os.ErrNotExist
 		tryBootstrapKonnectivityFn = func(ctx context.Context, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
@@ -497,15 +406,7 @@ func TestBootstrapKonnectivity(t *testing.T) {
 
 	t.Run("When context is canceled, it should return context error", func(t *testing.T) {
 		g := NewGomegaWithT(t)
-
-		// Save originals
-		originalBackoff := coreGuardBackoff
-		originalTry := tryBootstrapKonnectivityFn
-		coreGuardBackoff = waitBackoffForTest()
-		defer func() {
-			coreGuardBackoff = originalBackoff
-			tryBootstrapKonnectivityFn = originalTry
-		}()
+		setupBootstrapKonnectivityTest(t)
 
 		tryBootstrapKonnectivityFn = func(ctx context.Context, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {
 			time.Sleep(100 * time.Millisecond)
@@ -524,21 +425,21 @@ func TestBootstrapKonnectivity(t *testing.T) {
 	t.Run("When context is canceled during sleep, it should exit immediately", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
-		// Save originals
 		originalBackoff := coreGuardBackoff
 		originalTry := tryBootstrapKonnectivityFn
-		// Use a backoff with long delays to ensure we're testing cancellation during sleep
-		coreGuardBackoff = wait.Backoff{
-			Duration: 5 * time.Second,
-			Factor:   1.0,
-			Jitter:   0.0,
-			Steps:    1,
-			Cap:      5 * time.Second,
-		}
-		defer func() {
+		t.Cleanup(func() {
 			coreGuardBackoff = originalBackoff
 			tryBootstrapKonnectivityFn = originalTry
-		}()
+		})
+
+		// Use a backoff with long delays to ensure we're testing cancellation during sleep
+		coreGuardBackoff = coreGuardBackoffConfig{
+			initialDelay: 5 * time.Second,
+			factor:       1.0,
+			jitter:       0.0,
+			steps:        1,
+			cap:          5 * time.Second,
+		}
 
 		attempts := 0
 		tryBootstrapKonnectivityFn = func(ctx context.Context, opts konnectivityproxy.Options) (konnectivityproxy.ProxyDialer, error) {

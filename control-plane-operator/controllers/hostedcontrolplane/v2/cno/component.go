@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	konnectivityagent "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/konnectivity_agent"
 	oapiv2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/oapi"
 	"github.com/openshift/hypershift/support/azureutil"
 	component "github.com/openshift/hypershift/support/controlplane-component"
@@ -56,7 +57,7 @@ func NewComponent() component.ControlPlaneComponent {
 			component.WithAdaptFunction(adaptAzureSecretProvider),
 			component.WithPredicate(isAroHCP),
 		).
-		WithDependencies(oapiv2.ComponentName).
+		WithDependencies(oapiv2.ComponentName, konnectivityagent.ComponentName).
 		InjectKonnectivityContainer(component.KonnectivityContainerOptions{
 			Mode: component.Socks5, // CNO uses konnectivity-proxy to perform proxy readiness checks through the hosted cluster's network
 			Socks5Options: component.Socks5Options{

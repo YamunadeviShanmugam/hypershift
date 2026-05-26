@@ -2,6 +2,7 @@ package oapi
 
 import (
 	kasv2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/kas"
+	konnectivityagent "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/konnectivity_agent"
 	component "github.com/openshift/hypershift/support/controlplane-component"
 	"github.com/openshift/hypershift/support/podspec"
 )
@@ -49,6 +50,7 @@ func NewComponent() component.ControlPlaneComponent {
 			"pdb.yaml",
 			component.AdaptPodDisruptionBudget(),
 		).
+		WithDependencies(konnectivityagent.ComponentName).
 		InjectKonnectivityContainer(component.KonnectivityContainerOptions{
 			Mode: component.HTTPS,
 		}).

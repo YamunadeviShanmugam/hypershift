@@ -1,6 +1,7 @@
 package ingressoperator
 
 import (
+	konnectivityagent "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/konnectivity_agent"
 	oapiv2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/oapi"
 	"github.com/openshift/hypershift/support/azureutil"
 	"github.com/openshift/hypershift/support/capabilities"
@@ -51,7 +52,7 @@ func NewComponent() component.ControlPlaneComponent {
 			component.WithAdaptFunction(adaptAzureSecretProvider),
 			component.WithPredicate(isAroHCP),
 		).
-		WithDependencies(oapiv2.ComponentName).
+		WithDependencies(oapiv2.ComponentName, konnectivityagent.ComponentName).
 		InjectKonnectivityContainer(component.KonnectivityContainerOptions{
 			Mode: component.HTTPS,
 			HTTPSOptions: component.HTTPSOptions{

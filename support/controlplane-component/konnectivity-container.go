@@ -20,8 +20,9 @@ import (
 type ProxyMode string
 
 const (
-	Socks5 ProxyMode = "socks5"
-	HTTPS  ProxyMode = "https"
+	Socks5             ProxyMode = "socks5"
+	HTTPS              ProxyMode = "https"
+	DefaultServingPort int32     = 8090
 
 	// Dual mode will inject 2 konnectivity containers, one using HTTPS mode and the other using Socks5 mode.
 	Dual ProxyMode = "dual"
@@ -181,19 +182,15 @@ func (opts KonnectivityContainerOptions) buildContainer(hcp *hyperv1.HostedContr
 		kubeconfingVolumeName = "kubeconfig"
 	}
 
-	var servingPort int32
+	servingPort := DefaultServingPort
 	switch opts.Mode {
 	case HTTPS:
 		if opts.HTTPSOptions.ServingPort != 0 {
 			servingPort = int32(opts.HTTPSOptions.ServingPort)
-		} else {
-			servingPort = 8090
 		}
 	case Socks5:
 		if opts.Socks5Options.ServingPort != 0 {
 			servingPort = int32(opts.Socks5Options.ServingPort)
-		} else {
-			servingPort = 8090
 		}
 	}
 

@@ -1,6 +1,7 @@
 package packageserver
 
 import (
+	konnectivityagent "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/konnectivity_agent"
 	component "github.com/openshift/hypershift/support/controlplane-component"
 	"github.com/openshift/hypershift/support/podspec"
 
@@ -33,6 +34,7 @@ func (r *packageServer) NeedsManagementKASAccess() bool {
 func NewComponent() component.ControlPlaneComponent {
 	return component.NewDeploymentComponent(ComponentName, &packageServer{}).
 		WithAdaptFunction(adaptDeployment).
+		WithDependencies(konnectivityagent.ComponentName).
 		InjectKonnectivityContainer(component.KonnectivityContainerOptions{
 			Mode: component.Socks5,
 		}).

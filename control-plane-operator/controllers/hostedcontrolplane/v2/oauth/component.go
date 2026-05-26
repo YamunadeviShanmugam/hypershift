@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	konnectivityagent "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/konnectivity_agent"
 	oapiv2 "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/oapi"
 	component "github.com/openshift/hypershift/support/controlplane-component"
 	"github.com/openshift/hypershift/support/podspec"
@@ -67,7 +68,7 @@ func NewComponent() component.ControlPlaneComponent {
 			"default-error-template-secret.yaml",
 			component.WithAdaptFunction(adaptErrorTemplateSecret),
 		).
-		WithDependencies(oapiv2.ComponentName).
+		WithDependencies(oapiv2.ComponentName, konnectivityagent.ComponentName).
 		InjectKonnectivityContainer(component.KonnectivityContainerOptions{
 			Mode: component.Dual,
 			Socks5Options: component.Socks5Options{

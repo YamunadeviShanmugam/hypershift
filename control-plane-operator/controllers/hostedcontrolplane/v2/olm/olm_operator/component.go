@@ -2,6 +2,7 @@ package olmoperator
 
 import (
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	konnectivityagent "github.com/openshift/hypershift/control-plane-operator/controllers/hostedcontrolplane/v2/konnectivity_agent"
 	component "github.com/openshift/hypershift/support/controlplane-component"
 	"github.com/openshift/hypershift/support/podspec"
 
@@ -43,6 +44,7 @@ func NewComponent() component.ControlPlaneComponent {
 			component.WithAdaptFunction(adaptServiceMonitor),
 			component.DisableIfAnnotationExist(hyperv1.DisableMonitoringServices),
 		).
+		WithDependencies(konnectivityagent.ComponentName).
 		InjectKonnectivityContainer(component.KonnectivityContainerOptions{
 			Mode: component.Socks5,
 		}).

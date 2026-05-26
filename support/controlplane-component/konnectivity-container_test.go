@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	"github.com/openshift/hypershift/support/testutil"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestKonnectivityContainerBuildContainer_Socks5StartupProbe(t *testing.T) {
-	t.Run("When building socks5 container with default port, it should have TCP startup probe on port 8090", func(t *testing.T) {
+	t.Run("When building socks5 container with default port, it should have TCP startup probe on DefaultServingPort", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		opts := KonnectivityContainerOptions{
@@ -30,7 +31,7 @@ func TestKonnectivityContainerBuildContainer_Socks5StartupProbe(t *testing.T) {
 		g.Expect(container.Image).To(Equal("test-image"))
 		g.Expect(container.StartupProbe).ToNot(BeNil())
 		g.Expect(container.StartupProbe.TCPSocket).ToNot(BeNil())
-		g.Expect(container.StartupProbe.TCPSocket.Port).To(Equal(intstr.FromInt32(8090)))
+		g.Expect(container.StartupProbe.TCPSocket.Port).To(Equal(intstr.FromInt32(DefaultServingPort)))
 		g.Expect(container.StartupProbe.InitialDelaySeconds).To(Equal(int32(5)))
 		g.Expect(container.StartupProbe.PeriodSeconds).To(Equal(int32(2)))
 		g.Expect(container.StartupProbe.FailureThreshold).To(Equal(int32(30)))
@@ -56,7 +57,7 @@ func TestKonnectivityContainerBuildContainer_Socks5StartupProbe(t *testing.T) {
 }
 
 func TestKonnectivityContainerBuildContainer_HTTPSStartupProbe(t *testing.T) {
-	t.Run("When building HTTPS container with default port, it should have TCP startup probe on port 8090", func(t *testing.T) {
+	t.Run("When building HTTPS container with default port, it should have TCP startup probe on DefaultServingPort", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		opts := KonnectivityContainerOptions{
@@ -68,7 +69,7 @@ func TestKonnectivityContainerBuildContainer_HTTPSStartupProbe(t *testing.T) {
 
 		g.Expect(container.Name).To(Equal("konnectivity-proxy-https"))
 		g.Expect(container.StartupProbe).ToNot(BeNil())
-		g.Expect(container.StartupProbe.TCPSocket.Port).To(Equal(intstr.FromInt32(8090)))
+		g.Expect(container.StartupProbe.TCPSocket.Port).To(Equal(intstr.FromInt32(DefaultServingPort)))
 	})
 
 	t.Run("When building HTTPS container with custom port, it should have TCP startup probe on custom port", func(t *testing.T) {
@@ -145,7 +146,7 @@ func TestKonnectivityContainerInjectKonnectivityContainer(t *testing.T) {
 
 		cpContext := ControlPlaneContext{
 			HCP:                  hcp,
-			ReleaseImageProvider: &fakeImageProvider{},
+			ReleaseImageProvider: testutil.FakeImageProvider(),
 		}
 
 		opts.injectKonnectivityContainer(cpContext, podSpec)
@@ -171,7 +172,7 @@ func TestKonnectivityContainerInjectKonnectivityContainer(t *testing.T) {
 
 		cpContext := ControlPlaneContext{
 			HCP:                  hcp,
-			ReleaseImageProvider: &fakeImageProvider{},
+			ReleaseImageProvider: testutil.FakeImageProvider(),
 		}
 
 		opts.injectKonnectivityContainer(cpContext, podSpec)
@@ -182,27 +183,4 @@ func TestKonnectivityContainerInjectKonnectivityContainer(t *testing.T) {
 		g.Expect(podSpec.Containers[1].Name).To(Equal("konnectivity-proxy-socks5"))
 		g.Expect(podSpec.Containers[1].StartupProbe).ToNot(BeNil())
 	})
-}
-
-// fakeImageProvider implements ReleaseImageProvider for testing
-type fakeImageProvider struct{}
-
-func (f *fakeImageProvider) GetImage(key string) string {
-	return "fake-image-" + key
-}
-
-func (f *fakeImageProvider) ImageExist(key string) (string, bool) {
-	return "fake-image-" + key, true
-}
-
-func (f *fakeImageProvider) ComponentImages() map[string]string {
-	return map[string]string{}
-}
-
-func (f *fakeImageProvider) ComponentVersions() (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
-func (f *fakeImageProvider) Version() string {
-	return "4.16.0"
 }

@@ -2,14 +2,11 @@ package konnectivitysocks5proxy
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
-
-	"github.com/armon/go-socks5"
+	"github.com/go-logr/logr"
 )
 
 func TestNewStartCommand(t *testing.T) {
@@ -95,44 +92,11 @@ func TestNewStartCommand(t *testing.T) {
 	t.Run("When validating graceful shutdown behavior in serve function", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 
-		// This test verifies that the serve function respects context cancellation
+		// This test verifies that serveWithGracefulShutdown respects context cancellation
 		// by checking that it returns nil (clean shutdown) when context is canceled
 
-		// Create the serve function (same pattern as in main.go)
-		serveFunc := func(ctx context.Context, servingPort uint32) error {
-			// Create a minimal socks5 config
-			conf := &socks5.Config{}
-			server, err := socks5.New(conf)
-			if err != nil {
-				return fmt.Errorf("cannot create socks5 server: %w", err)
-			}
-
-			// Create listener explicitly for graceful shutdown
-			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", servingPort))
-			if err != nil {
-				return fmt.Errorf("cannot create listener: %w", err)
-			}
-
-			// Run server in goroutine
-			serveDone := make(chan error, 1)
-			go func() {
-				serveDone <- server.Serve(listener)
-			}()
-
-			// Wait for either context cancellation or serve error
-			select {
-			case <-ctx.Done():
-				// Graceful shutdown: close listener to stop accepting new connections
-				_ = listener.Close()
-				// Wait for Serve to finish
-				<-serveDone
-				// Treat context cancellation as clean shutdown
-				return nil
-			case err := <-serveDone:
-				// Server stopped, return the error
-				return err
-			}
-		}
+		// Create a mock dialer (minimal implementation)
+		mockDialer := &mockProxyDialer{}
 
 		// Test context cancellation leads to clean shutdown
 		ctx, cancel := context.WithCancel(context.Background())
@@ -140,7 +104,7 @@ func TestNewStartCommand(t *testing.T) {
 		// Start the server in a goroutine
 		errChan := make(chan error, 1)
 		go func() {
-			errChan <- serveFunc(ctx, 0) // Port 0 = random available port
+			errChan <- serveWithGracefulShutdown(ctx, mockDialer, 0, logr.Discard()) // Port 0 = random available port
 		}()
 
 		// Give server time to start
