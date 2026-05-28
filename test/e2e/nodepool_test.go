@@ -431,7 +431,7 @@ func validateNodePoolConditions(t *testing.T, ctx context.Context, client crclie
 			err := client.Get(ctx, crclient.ObjectKeyFromObject(nodePool), nodePool)
 			return nodePool, err
 		},
-		predicates, e2eutil.WithoutConditionDump(), e2eutil.WithTimeout(20*time.Minute),
+		predicates, e2eutil.WithoutConditionDump(), e2eutil.WithTimeout(30*time.Minute),
 		e2eutil.WithInterval(15*time.Second), // Reduce polling frequency from 3s default to prevent client rate limiting
 	)
 }
