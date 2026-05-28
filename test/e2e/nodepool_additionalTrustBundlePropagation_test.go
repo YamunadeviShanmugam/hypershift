@@ -54,6 +54,13 @@ func (k *AdditionalTrustBundlePropagationTest) BuildNodePoolManifest(defaultNode
 }
 
 func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv1.NodePool, nodes []corev1.Node) {
+	const (
+		nodePoolConfigUpdateStartTimeout  = 5 * time.Minute
+		nodePoolConfigUpdateFinishTimeout = 30 * time.Minute
+		nodePoolConfigUpdatePollInterval  = 15 * time.Second
+		cpoDeploymentUpdateTimeout        = 10 * time.Minute
+	)
+
 	t.Run("AdditionalTrustBundlePropagationTest", func(t *testing.T) {
 		e2eutil.AtLeast(t, e2eutil.Version418)
 
@@ -90,7 +97,7 @@ func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv
 					Status: metav1.ConditionTrue,
 				}),
 			},
-			e2eutil.WithInterval(10*time.Second), e2eutil.WithTimeout(5*time.Minute),
+			e2eutil.WithInterval(nodePoolConfigUpdatePollInterval), e2eutil.WithTimeout(nodePoolConfigUpdateStartTimeout),
 		)
 
 		e2eutil.EventuallyObject(t, k.ctx, fmt.Sprintf("Waiting for NodePool %s/%s to stop updating", nodePool.Namespace, nodePool.Name),
@@ -108,7 +115,7 @@ func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv
 					Status: metav1.ConditionTrue,
 				}),
 			},
-			e2eutil.WithInterval(10*time.Second), e2eutil.WithTimeout(20*time.Minute),
+			e2eutil.WithInterval(nodePoolConfigUpdatePollInterval), e2eutil.WithTimeout(nodePoolConfigUpdateFinishTimeout),
 		)
 
 		// Sanity check: ensure the user-ca-bundle exists in the guest cluster before removal to avoid false positives
@@ -127,7 +134,7 @@ func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv
 				[]e2eutil.Predicate[*corev1.ConfigMap]{
 					func(obj *corev1.ConfigMap) (bool, string, error) { return true, "exists", nil },
 				},
-				e2eutil.WithInterval(10*time.Second), e2eutil.WithTimeout(5*time.Minute),
+				e2eutil.WithInterval(nodePoolConfigUpdatePollInterval), e2eutil.WithTimeout(5*time.Minute),
 			)
 		}
 
@@ -164,6 +171,7 @@ func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv
 					return true, "Additional trust bundle configmap is not included in CPO", nil
 				},
 			},
+			e2eutil.WithInterval(nodePoolConfigUpdatePollInterval), e2eutil.WithTimeout(cpoDeploymentUpdateTimeout),
 		)
 
 		e2eutil.EventuallyObject(t, k.ctx, fmt.Sprintf("Waiting for NodePool %s/%s to begin updating", nodePool.Namespace, nodePool.Name),
@@ -177,7 +185,7 @@ func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv
 					Status: metav1.ConditionTrue,
 				}),
 			},
-			e2eutil.WithInterval(10*time.Second), e2eutil.WithTimeout(5*time.Minute),
+			e2eutil.WithInterval(nodePoolConfigUpdatePollInterval), e2eutil.WithTimeout(nodePoolConfigUpdateStartTimeout),
 		)
 
 		e2eutil.EventuallyObject(t, k.ctx, fmt.Sprintf("Waiting for NodePool %s/%s to stop updating", nodePool.Namespace, nodePool.Name),
@@ -195,7 +203,7 @@ func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv
 					Status: metav1.ConditionTrue,
 				}),
 			},
-			e2eutil.WithInterval(10*time.Second), e2eutil.WithTimeout(20*time.Minute),
+			e2eutil.WithInterval(nodePoolConfigUpdatePollInterval), e2eutil.WithTimeout(nodePoolConfigUpdateFinishTimeout),
 		)
 
 		// Ensure the user-ca-bundle configmap is deleted from the guest cluster
@@ -208,7 +216,7 @@ func (k *AdditionalTrustBundlePropagationTest) Run(t *testing.T, nodePool hyperv
 				},
 			}
 			e2eutil.EventuallyNotFound(t, k.ctx, k.guestClient, userCAConfigMap,
-				e2eutil.WithInterval(10*time.Second), e2eutil.WithTimeout(5*time.Minute),
+				e2eutil.WithInterval(nodePoolConfigUpdatePollInterval), e2eutil.WithTimeout(5*time.Minute),
 			)
 		}
 	})
