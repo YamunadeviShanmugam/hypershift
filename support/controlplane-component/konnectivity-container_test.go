@@ -184,6 +184,7 @@ func TestKonnectivityContainerInjectKonnectivityContainer(t *testing.T) {
 		g.Expect(podSpec.Containers[1].Name).To(Equal("konnectivity-proxy-socks5"))
 		g.Expect(podSpec.Containers[1].StartupProbe).ToNot(BeNil())
 	})
+}
 
 func findEnvVar(envVars []corev1.EnvVar, name string) *corev1.EnvVar {
 	for i := range envVars {
