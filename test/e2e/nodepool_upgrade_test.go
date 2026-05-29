@@ -108,10 +108,10 @@ func (ru *NodePoolUpgradeTest) getNodePoolUpgradeTimeout() time.Duration {
 	case hyperv1.AzurePlatform:
 		// Azure VMs are experiencing slow provisioning and upgrade times.
 		// Extend timeout to account for Azure's slower platform operations.
-		upgradeTimeout = 45 * time.Minute
+		upgradeTimeout = 60 * time.Minute
 	case hyperv1.KubevirtPlatform:
 		// KubeVirt also tends to be slower for upgrades
-		upgradeTimeout = 45 * time.Minute
+		upgradeTimeout = 60 * time.Minute
 	}
 
 	return upgradeTimeout
@@ -252,6 +252,7 @@ func (ru *NodePoolUpgradeTest) Run(t *testing.T, nodePool hyperv1.NodePool, node
 			}),
 		},
 		e2eutil.WithTimeout(ru.getNodePoolUpgradeTimeout()),
+		e2eutil.WithInterval(15*time.Second), // Reduce polling frequency to prevent client rate limiting
 	)
 	newNodes := e2eutil.WaitForReadyNodesByNodePool(t, ctx, ru.hostedClusterClient, &nodePool, ru.hostedCluster.Spec.Platform.Type)
 	e2eutil.EnsureNodesRuntime(t, newNodes)

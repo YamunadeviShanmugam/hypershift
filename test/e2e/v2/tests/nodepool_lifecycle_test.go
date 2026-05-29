@@ -381,6 +381,7 @@ func NodePoolReplaceUpgradeTest(getTestCtx internal.TestContextGetter) {
 				}),
 			},
 			e2eutil.WithTimeout(upgradeTimeout),
+			e2eutil.WithInterval(15*time.Second), // Reduce polling frequency to prevent client rate limiting
 		)
 
 		e2eutil.WaitForReadyNodesByNodePool(GinkgoTB(), ctx, guestClient, np, hc.Spec.Platform.Type)
@@ -459,6 +460,7 @@ func NodePoolInPlaceUpgradeTest(getTestCtx internal.TestContextGetter) {
 				}),
 			},
 			e2eutil.WithTimeout(upgradeTimeout),
+			e2eutil.WithInterval(15*time.Second), // Reduce polling frequency to prevent client rate limiting
 		)
 
 		e2eutil.WaitForReadyNodesByNodePool(GinkgoTB(), ctx, guestClient, np, hc.Spec.Platform.Type)
@@ -556,6 +558,7 @@ func NodePoolRollingUpgradeTest(getTestCtx internal.TestContextGetter) {
 				}),
 			},
 			e2eutil.WithTimeout(rollingTimeout),
+			e2eutil.WithInterval(15*time.Second), // Reduce polling frequency to prevent client rate limiting
 		)
 
 		// TODO: Verify machine specs (AWSMachineList / AzureMachineList) after upgrade.
@@ -1407,7 +1410,7 @@ func waitForDaemonSetRollout(ctx context.Context, client crclient.Client, ds *ap
 func nodePoolUpgradeTimeout(platform hyperv1.PlatformType) time.Duration {
 	switch platform {
 	case hyperv1.AzurePlatform, hyperv1.KubevirtPlatform:
-		return 45 * time.Minute
+		return 60 * time.Minute
 	default:
 		return 20 * time.Minute
 	}

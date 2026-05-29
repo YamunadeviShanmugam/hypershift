@@ -53,10 +53,10 @@ func (k *RollingUpgradeTest) getRollingUpgradeTimeout() time.Duration {
 	case hyperv1.AzurePlatform:
 		// Azure VMs are experiencing slow provisioning and upgrade times.
 		// Extend timeout to account for Azure's slower platform operations.
-		upgradeTimeout = 45 * time.Minute
+		upgradeTimeout = 60 * time.Minute
 	case hyperv1.KubevirtPlatform:
 		// KubeVirt also tends to be slower for upgrades
-		upgradeTimeout = 45 * time.Minute
+		upgradeTimeout = 60 * time.Minute
 	}
 
 	return upgradeTimeout
@@ -131,6 +131,7 @@ func (k *RollingUpgradeTest) Run(t *testing.T, nodePool hyperv1.NodePool, nodes 
 			}),
 		},
 		e2eutil.WithTimeout(k.getRollingUpgradeTimeout()),
+		e2eutil.WithInterval(15*time.Second), // Reduce polling frequency to prevent client rate limiting
 	)
 
 	controlPlaneNamespace := manifests.HostedControlPlaneNamespace(k.hostedCluster.Namespace, k.hostedCluster.Name)
